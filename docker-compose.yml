@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # 📌 Nginx Yük Dengeleyici
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "8090:90"  # Nginx'i dış dünyaya açarken 90 numaralı portu kullan
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro  # Nginx yapılandırma dosyasını bağla (read-only)
+    depends_on:  # Bağımlılıklar, yani önce bu servisler başlamalı
+      - app1
+      - app2
+
+  # 📌 İlk Spring Boot Uygulaması (Backend 1)
+  app1:
+    build: .  # Proje dizinindeki Dockerfile kullanılarak container oluştur
+    container_name: app1
+    ports:
+      - "8091:8091"  # Dış dünyadan erişim için port açıldı
+    environment:
+      - SERVER_PORT=8091  # Uygulama 8091 portunda çalışacak
+      - DB_HOST=postgres  # Veritabanı bağlantısı için host adı
+      - DB_PORT=5432  # PostgreSQL'in çalıştığı port
+      - DB_NAME=dagitiksistem  # Veritabanı adı
+      - DB_USERNAME=postgres  # Veritabanı kullanıcı adı
+      - DB_PASSWORD=12345  # Veritabanı şifresi
+      - REDIS_HOST=redis  # Redis bağlantısı için host adı
+      - REDIS_PORT=6379  # Redis'in çalıştığı port
+    depends_on:
+      - postgres
+      - redis
+
+  # 📌 İkinci Spring Boot Uygulaması (Replikasyon - Backend 2)
+  app2:
+    build: .  # app1 ile aynı Dockerfile kullanılarak oluşturulacak
+    container_name: app2
+    ports:
+      - "8092:8092"  # Dış dünyadan erişim için port açıldı
+    environment:
+      - SERVER_PORT=8092  # İkinci uygulama da 8092 portunda çalışıyor
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=dagitiksistem
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=12345
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - postgres
+      - redis
+
+  # 📌 PostgreSQL Veritabanı Sunucusu
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      - POSTGRES_DB=dagitiksistem  # Veritabanı adı
+      - POSTGRES_USER=postgres  # Kullanıcı adı
+      - POSTGRES_PASSWORD=12345  # Şifre
+    ports:
+      - "5432:5432"  # PostgreSQL erişimi için port yönlendirme
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # Verileri kaybetmemek için kalıcı disk alanı
+
+  # 📌 Redis Cache Sunucusu
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"  # Redis erişimi için port yönlendirme
+    volumes:
+      - redis_data:/data  # Redis için kalıcı veri deposu
+
+# 📌 Kalıcı Veri Depolama (Veritabanı ve Redis için)
+volumes:
+  postgres_data:  # PostgreSQL verilerini saklayan volume
+  redis_data:  # Redis için kalıcı veri depolama
